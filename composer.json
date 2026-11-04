@@ -1,17 +1,23 @@
 {
-    "name": "webware/smf-legacy-router",
-    "description": "RouterInterface for routing legacy SMF urls to middleware/request handlers.",
+    "name": "webware/query-param-router",
+    "description": "Mezzio router that matches routes on query parameters as well as path and HTTP method.",
     "license": "BSD-3-Clause",
     "keywords": [
-        "template",
-        "repository",
-        "php"
+        "webware",
+        "router",
+        "mezzio",
+        "query-param"
     ],
+    "homepage": "https://github.com/webinertia/query-param-router/discussions",
+    "support": {
+        "issues": "https://github.com/webinertia/query-param-router/issues",
+        "source": "https://github.com/webinertia/query-param-router",
+        "forum": "https://github.com/webinertia/query-param-router/discussions"
+    },
     "authors": [
         {
             "name": "Joey (aka Tyrsson) Smith",
             "email": "jsmith@webinertia.net",
-            "homepage": "https://github.com/tyrsson/smf-legacy-router/discussions",
             "role": "Developer"
         }
     ],
@@ -20,23 +26,30 @@
     "config": {
         "sort-packages": true,
         "platform": {
-            "php": "8.2.99"
+            "php": "8.4.99"
         },
         "allow-plugins": {
-            "composer/package-versions-deprecated": true
+            "composer/package-versions-deprecated": true,
+            "infection/extension-installer": true,
+            "laminas/laminas-component-installer": true
         }
     },
     "require": {
-        "mezzio/mezzio-router": "3.13.0"
+        "php": "~8.4.1 || ~8.5.0",
+        "mezzio/mezzio-router": "^3.15 || ^4.0",
+        "psr/container": "^2.0",
+        "psr/http-message": "^2.0",
+        "psr/http-server-middleware": "^1.0"
     },
     "require-dev": {
-        "laminas/laminas-diactoros": "3.2.0",
-        "laminas/laminas-stratigility": "3.10.0",
-        "phpstan/phpstan": "^2.1",
-        "phpstan/phpstan-phpunit": "^2.0",
-        "phpunit/phpunit": "^11.5.42",
+        "infection/infection": "^0.35.0",
+        "laminas/laminas-diactoros": "^3.2",
+        "laminas/laminas-stratigility": "^3.10",
+        "phpunit/phpunit": "^13.4.4",
+        "psr/http-server-handler": "^1.0",
+        "roave/backward-compatibility-check": "^8.21.0",
         "roave/security-advisories": "dev-master",
-        "webware/coding-standard": "^0.1.0"
+        "webware/webware-tools": "^1.0.0-rc.9"
     },
     "autoload": {
         "psr-4": {
@@ -45,26 +58,25 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "WebwareIntegrationTest\\Router\\": "test/integration/",
+            "WebwareTestIntegration\\Router\\": "test/integration/",
             "WebwareTestAsset\\Router\\": "test/asset/",
             "WebwareTest\\Router\\": "test/unit/"
         }
     },
+    "extra": {
+        "laminas": {
+            "config-provider": "Webware\\Router\\ConfigProvider"
+        }
+    },
     "scripts": {
-        "check": [
-            "@cs-check",
-            "@sa",
+        "test": "phpunit --colors=always --no-coverage --testsuite \"unit test\"",
+        "test-coverage": "phpunit --colors=always --coverage-clover clover.xml --coverage-html coverage/html --coverage-text",
+        "test-integration": "phpunit --colors=always --no-coverage --testsuite \"integration test\"",
+        "mutation-test": "infection",
+        "test-all": [
             "@test",
-            "@test-integration"
-        ],
-        "cs-check": "vendor/bin/php-cs-fixer check -v --show-progress=dots --stop-on-violation",
-        "cs-fix": "vendor/bin/php-cs-fixer fix",
-        "test": "phpunit --colors=always --testsuite \"unit test\"",
-        "test-coverage": "phpunit --colors=always --coverage-clover clover.xml",
-        "test-integration": "phpunit --colors=always --testsuite \"integration test\"",
-        "sa": "vendor/bin/phpstan analyse --memory-limit=256M",
-        "sa-gen-baseline": "vendor/bin/phpstan analyse --memory-limit=256M --generate-baseline",
-        "sa-verbose": "vendor/bin/phpstan analyse --memory-limit=256M -vv",
-        "upload-coverage": "coveralls -v"
+            "@test-integration",
+            "@mutation-test"
+        ]
     }
 }

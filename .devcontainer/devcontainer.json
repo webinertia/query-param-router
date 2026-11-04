@@ -1,0 +1,25 @@
+// Webware alignment Dev Container.
+//
+// This is a thin wrapper around compose.yml - it reuses the `tooling` service
+// rather than defining a parallel environment, so VS Code and plain
+// `docker compose` users share the exact same container. Non-VS Code
+// developers are not orphaned: they use `docker compose up -d` +
+// `docker compose exec tooling bash` directly.
+//
+// For format details, see https://aka.ms/devcontainer.json.
+{
+  "name": "Webware Tooling",
+  "dockerComposeFile": ["../compose.yml"],
+  "service": "tooling",
+  "workspaceFolder": "/app",
+  "shutdownAction": "none",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
+        "editorconfig.editorconfig"
+      ]
+    }
+  }
+}

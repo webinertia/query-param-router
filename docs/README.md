@@ -7,7 +7,7 @@ Welcome to the comprehensive documentation for Query Parameter Router, a query-p
 ### Installation
 
 ```bash
-composer require webware/smf-legacy-router
+composer require webware/query-param-router
 
 ```
 
@@ -238,6 +238,6 @@ $route = new QueryParamRoute(
 
 ## Support & Contributing
 
-- **GitHub Issues**: [tyrsson/smf-legacy-router/issues](https://github.com/tyrsson/smf-legacy-router/issues)
-- **Discussions**: [tyrsson/smf-legacy-router/discussions](https://github.com/tyrsson/smf-legacy-router/discussions)
+- **GitHub Issues**: [webinertia/query-param-router/issues](https://github.com/webinertia/query-param-router/issues)
+- **Discussions**: [webinertia/query-param-router/discussions](https://github.com/webinertia/query-param-router/discussions)
 Contributions welcome! Please ensure all tests pass and follow the existing code style.

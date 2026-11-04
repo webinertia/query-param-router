@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -17,6 +17,7 @@ namespace WebwareTest\Router;
 use Mezzio\Router\Exception\DuplicateRouteException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Server\MiddlewareInterface;
@@ -31,14 +32,42 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
 
     private MiddlewareInterface $middleware;
 
-    protected function setUp(): void
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsEmptyQueryParamsOnDifferentPaths(): void
     {
-        $this->detector   = new QueryParamDuplicateRouteDetector();
-        $this->middleware = $this->createMock(MiddlewareInterface::class);
+        $route1 = new QueryParamRoute('/api', $this->middleware, []);
+        $route2 = new QueryParamRoute('/other', $this->middleware, []);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw
     }
 
-    #[DoesNotPerformAssertions()]
-    public function testAllowsSamePathWithDifferentQueryParams(): void
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsSamePathDifferentQueryParamCount(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action', 'type']);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw
+    }
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsSamePathQueryParamsWithDifferentMethods(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['POST']);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw
+    }
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsSamePathWithDifferentQueryParams(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action']);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['type']);
@@ -47,7 +76,148 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2); // Should not throw
     }
 
-    public function testThrowsOnDuplicatePathAndQueryParams(): void
+    // Value constraint tests
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsSamePathWithDifferentValueConstraints(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'edit', 'u' => null]);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw - different value constraints
+    }
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function allowsWildcardAndSpecificValueForSameKey(): void
+    {
+        // Wildcard route (any value)
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => null, 'u' => null]);
+
+        // Specific value route
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw - different constraints
+    }
+
+    #[Test]
+    public function duplicateMessageDescribesValueConstraints(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
+
+        $this->detector->detectDuplicate($route1);
+
+        try {
+            $this->detector->detectDuplicate($route2);
+            static::fail('Expected a DuplicateRouteException to be thrown');
+        } catch (DuplicateRouteException $exception) {
+            static::assertStringContainsString(
+                'with query params [action=profile,u]',
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    #[Test]
+    public function duplicateMessageListsSpecificMethods(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
+
+        $this->detector->detectDuplicate($route1);
+
+        try {
+            $this->detector->detectDuplicate($route2);
+            static::fail('Expected a DuplicateRouteException to be thrown');
+        } catch (DuplicateRouteException $exception) {
+            static::assertStringContainsString('answering to methods [GET]', $exception->getMessage());
+        }
+    }
+
+    #[Test]
+    public function duplicateMessageOmitsQueryParamsWhenNoneAreRequired(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, [], null, 'api-route');
+        $route2 = new QueryParamRoute('/other', $this->middleware, [], null, 'api-route');
+
+        $this->detector->detectDuplicate($route1);
+
+        try {
+            $this->detector->detectDuplicate($route2);
+            static::fail('Expected a DuplicateRouteException to be thrown');
+        } catch (DuplicateRouteException $exception) {
+            static::assertStringNotContainsString('query params', $exception->getMessage());
+        }
+    }
+
+    #[Test]
+    public function duplicateMessageReportsAnyForRoutesWithoutMethods(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], null, 'api-route');
+        $route2 = new QueryParamRoute('/other', $this->middleware, ['action'], null, 'api-route');
+
+        $this->detector->detectDuplicate($route1);
+
+        try {
+            $this->detector->detectDuplicate($route2);
+            static::fail('Expected a DuplicateRouteException to be thrown');
+        } catch (DuplicateRouteException $exception) {
+            static::assertStringContainsString('answering to methods [(any)]', $exception->getMessage());
+        }
+    }
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function mixedConstraintsNotConsideredDuplicate(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'type' => null]);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => null, 'type' => 'user']);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw - different constraints
+    }
+
+    #[DoesNotPerformAssertions]
+    #[Test]
+    public function queryParamKeysAreCaseSensitive(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['Action']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action']);
+
+        $this->detector->detectDuplicate($route1);
+        $this->detector->detectDuplicate($route2); // Should not throw (different case)
+    }
+
+    #[Test]
+    public function queryParamKeysAreOrderIndependent(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action', 'type']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['type', 'action']);
+
+        $this->detector->detectDuplicate($route1);
+
+        $this->expectException(DuplicateRouteException::class);
+        $this->detector->detectDuplicate($route2);
+    }
+
+    #[Test]
+    public function throwsOnDuplicateEmptyQueryParamsSamePath(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, []);
+        $route2 = new QueryParamRoute('/api', $this->middleware, []);
+
+        $this->detector->detectDuplicate($route1);
+
+        $this->expectException(DuplicateRouteException::class);
+        $this->detector->detectDuplicate($route2);
+    }
+
+    #[Test]
+    public function throwsOnDuplicatePathAndQueryParams(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action']);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['action']);
@@ -59,7 +229,8 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    public function testThrowsOnDuplicatePathQueryParamsAndMethod(): void
+    #[Test]
+    public function throwsOnDuplicatePathQueryParamsAndMethod(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
@@ -70,60 +241,8 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    #[DoesNotPerformAssertions()]
-    public function testAllowsSamePathQueryParamsWithDifferentMethods(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['POST']);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw
-    }
-
-    public function testThrowsWhenAnyMethodRouteExistsAndSpecificMethodAdded(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action']); // any method
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
-
-        $this->detector->detectDuplicate($route1);
-
-        $this->expectException(DuplicateRouteException::class);
-        $this->detector->detectDuplicate($route2);
-    }
-
-    public function testThrowsWhenSpecificMethodExistsAndAnyMethodAdded(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action']); // any method
-
-        $this->detector->detectDuplicate($route1);
-
-        $this->expectException(DuplicateRouteException::class);
-        $this->detector->detectDuplicate($route2);
-    }
-
-    public function testQueryParamKeysAreOrderIndependent(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action', 'type']);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['type', 'action']);
-
-        $this->detector->detectDuplicate($route1);
-
-        $this->expectException(DuplicateRouteException::class);
-        $this->detector->detectDuplicate($route2);
-    }
-
-    #[DoesNotPerformAssertions()]
-    public function testQueryParamKeysAreCaseSensitive(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['Action']);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action']);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw (different case)
-    }
-
-    public function testThrowsOnDuplicateRouteName(): void
+    #[Test]
+    public function throwsOnDuplicateRouteName(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], null, 'api-route');
         $route2 = new QueryParamRoute('/other', $this->middleware, ['type'], null, 'api-route');
@@ -135,30 +254,11 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    #[DoesNotPerformAssertions()]
-    public function testAllowsSamePathDifferentQueryParamCount(): void
+    #[Test]
+    public function throwsOnMethodOverlapWhenEarlierMethodIsNotRegistered(): void
     {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action']);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action', 'type']);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw
-    }
-
-    #[DoesNotPerformAssertions()]
-    public function testAllowsEmptyQueryParamsOnDifferentPaths(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, []);
-        $route2 = new QueryParamRoute('/other', $this->middleware, []);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw
-    }
-
-    public function testThrowsOnDuplicateEmptyQueryParamsSamePath(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, []);
-        $route2 = new QueryParamRoute('/api', $this->middleware, []);
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['POST']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET', 'POST']);
 
         $this->detector->detectDuplicate($route1);
 
@@ -166,7 +266,8 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    public function testThrowsOnMethodOverlapWithMultipleMethods(): void
+    #[Test]
+    public function throwsOnMethodOverlapWithMultipleMethods(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET', 'POST']);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['POST', 'PUT']);
@@ -178,20 +279,8 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    // Value constraint tests
-
-    public function testAllowsSamePathWithDifferentValueConstraints(): void
-    {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'edit', 'u' => null]);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw - different value constraints
-        
-        $this->assertTrue(true); // If we get here, no exception was thrown
-    }
-
-    public function testThrowsOnSamePathAndValueConstraints(): void
+    #[Test]
+    public function throwsOnSamePathAndValueConstraints(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
@@ -202,21 +291,32 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2);
     }
 
-    public function testAllowsWildcardAndSpecificValueForSameKey(): void
+    #[Test]
+    public function throwsWhenAnyMethodRouteExistsAndSpecificMethodAdded(): void
     {
-        // Wildcard route (any value)
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => null, 'u' => null]);
-        
-        // Specific value route
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'u' => null]);
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action']); // any method
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
 
         $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw - different constraints
-        
-        $this->assertTrue(true); // If we get here, no exception was thrown
+
+        $this->expectException(DuplicateRouteException::class);
+        $this->detector->detectDuplicate($route2);
     }
 
-    public function testValueConstraintsAreOrderIndependent(): void
+    #[Test]
+    public function throwsWhenSpecificMethodExistsAndAnyMethodAdded(): void
+    {
+        $route1 = new QueryParamRoute('/api', $this->middleware, ['action'], ['GET']);
+        $route2 = new QueryParamRoute('/api', $this->middleware, ['action']); // any method
+
+        $this->detector->detectDuplicate($route1);
+
+        $this->expectException(DuplicateRouteException::class);
+        $this->detector->detectDuplicate($route2);
+    }
+
+    #[Test]
+    public function valueConstraintsAreOrderIndependent(): void
     {
         $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'type' => 'user']);
         $route2 = new QueryParamRoute('/api', $this->middleware, ['type' => 'user', 'action' => 'profile']);
@@ -227,14 +327,9 @@ class QueryParamDuplicateRouteDetectorTest extends TestCase
         $this->detector->detectDuplicate($route2); // Should throw - same constraints, different order
     }
 
-    public function testMixedConstraintsNotConsideredDuplicate(): void
+    protected function setUp(): void
     {
-        $route1 = new QueryParamRoute('/api', $this->middleware, ['action' => 'profile', 'type' => null]);
-        $route2 = new QueryParamRoute('/api', $this->middleware, ['action' => null, 'type' => 'user']);
-
-        $this->detector->detectDuplicate($route1);
-        $this->detector->detectDuplicate($route2); // Should not throw - different constraints
-        
-        $this->assertTrue(true); // If we get here, no exception was thrown
+        $this->detector   = new QueryParamDuplicateRouteDetector();
+        $this->middleware = $this->createStub(MiddlewareInterface::class);
     }
 }

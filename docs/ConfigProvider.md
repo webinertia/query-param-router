@@ -198,7 +198,7 @@ return [
 ### 1. Install Dependencies
 
 ```bash
-composer require webware/smf-legacy-router
+composer require webware/query-param-router
 composer require laminas/laminas-config-aggregator
 composer require laminas/laminas-servicemanager
 

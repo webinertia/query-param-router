@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -13,8 +13,6 @@ declare(strict_types=1);
  */
 
 namespace Webware\Router;
-
-use Mezzio\Router\RouterInterface;
 
 /**
  * ConfigProvider for query parameter router.
@@ -31,19 +29,6 @@ use Mezzio\Router\RouterInterface;
  */
 final class ConfigProvider
 {
-    /**
-     * Returns configuration array.
-     *
-     * @return array<string, mixed>
-     */
-    public function __invoke(): array
-    {
-        return [
-            'dependencies'          => $this->getDependencies(),
-            QueryParamRouter::class => $this->getRouterConfig(),
-        ];
-    }
-
     /**
      * Returns dependency configuration.
      *
@@ -73,6 +58,19 @@ final class ConfigProvider
     {
         return [
             'detect_duplicates' => true,
+        ];
+    }
+
+    /**
+     * Returns configuration array.
+     *
+     * @return array<string, mixed>
+     */
+    public function __invoke(): array
+    {
+        return [
+            'dependencies'          => $this->getDependencies(),
+            QueryParamRouter::class => $this->getRouterConfig(),
         ];
     }
 }

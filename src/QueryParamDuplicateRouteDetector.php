@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -17,9 +17,16 @@ namespace Webware\Router;
 use Mezzio\Router\Exception\DuplicateRouteException;
 use Mezzio\Router\Route;
 
+use function array_key_exists;
+use function array_keys;
 use function implode;
+use function is_array;
+use function is_scalar;
+use function is_string;
 use function sort;
 use function sprintf;
+
+use const SORT_STRING;
 
 /**
  * Detects duplicate routes based on path, query parameter keys, and HTTP methods.
@@ -32,9 +39,9 @@ use function sprintf;
  */
 final class QueryParamDuplicateRouteDetector
 {
-    private const ROUTE_SEARCH_ANY = 'any';
+    private const string ROUTE_SEARCH_ANY = 'any';
 
-    private const ROUTE_SEARCH_METHODS = 'methods';
+    private const string ROUTE_SEARCH_METHODS = 'methods';
 
     /**
      * List of all routes indexed by name
@@ -74,88 +81,83 @@ final class QueryParamDuplicateRouteDetector
      *
      * @throws DuplicateRouteException On duplicate route detection.
      */
-    public function detectDuplicate(Route $route): void
+    public function detectDuplicate(Route|QueryParamRoute $route): void
     {
+        $route = $route instanceof QueryParamRoute ? $route->toRoute() : $route;
+
         $this->throwOnDuplicate($route);
         $this->remember($route);
     }
 
-    private function remember(Route $route): void
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function asArray(mixed $value): array
     {
-        $this->routeNames[$route->getName()] = $route;
-
-        $path     = $route->getPath();
-        $queryKey = $this->getQueryKey($route);
-
-        if ($route->allowsAnyMethod()) {
-            $this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_ANY] = $route;
-        } else {
-            $allowedMethods = $route->getAllowedMethods() ?? [];
-            foreach ($allowedMethods as $method) {
-                $this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_METHODS][$method] = $route;
-            }
-        }
+        return is_array($value) ? $value : [];
     }
 
-    private function throwOnDuplicate(Route $route): void
+    private function describeConstraint(string $key, mixed $value): ?string
     {
-        // Check for duplicate name
-        if (isset($this->routeNames[$route->getName()])) {
-            $this->duplicateRouteDetected($route);
+        if (null === $value) {
+            return $key;
         }
 
-        $path     = $route->getPath();
-        $queryKey = $this->getQueryKey($route);
-
-        // Check if this path+query combination exists
-        if (! isset($this->routePaths[$path][$queryKey])) {
-            return;
+        if (! is_scalar($value)) {
+            return null;
         }
 
-        // Check for "any" method collision
-        if (isset($this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_ANY])) {
-            $this->duplicateRouteDetected($route);
-        }
-
-        // If new route allows any method and there are specific methods registered
-        if ($route->allowsAnyMethod() && isset($this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_METHODS])) {
-            $this->duplicateRouteDetected($route);
-        }
-
-        // Check for specific method collisions
-        if (! $route->allowsAnyMethod()) {
-            $allowedMethods = $route->getAllowedMethods() ?? [];
-            foreach ($allowedMethods as $method) {
-                if (isset($this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_METHODS][$method])) {
-                    $this->duplicateRouteDetected($route);
-                }
-            }
-        }
+        return $key . '=' . (string) $value;
     }
 
+    /**
+     * Render query parameter constraints for error messages.
+     *
+     * @param array<array-key, mixed> $queryParams
+     * @return list<string>
+     */
+    private function describeQueryParams(array $queryParams): array
+    {
+        $parts = [];
+
+        foreach (array_keys($queryParams) as $key) {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            $part = $this->describeConstraint($key, $queryParams[$key] ?? null);
+
+            if (null === $part) {
+                continue;
+            }
+
+            $parts[] = $part;
+        }
+
+        return $parts;
+    }
+
+    /**
+     * @throws DuplicateRouteException Always.
+     */
     private function duplicateRouteDetected(Route $duplicate): void
     {
-        $allowedMethods = $duplicate->getAllowedMethods() ?: ['(any)'];
-        $name           = $duplicate->getName();
+        $allowedMethods = $duplicate->getAllowedMethods();
 
-        $queryParams = $this->getQueryParamsFromRoute($duplicate);
-        $queryInfo   = '';
-        if (! empty($queryParams)) {
-            $parts = [];
-            foreach ($queryParams as $key => $value) {
-                if (! is_string($key)) {
-                    continue;
-                }
-                if ($value === null) {
-                    $parts[] = $key;
-                } elseif (is_scalar($value)) {
-                    $parts[] = $key . '=' . (string) $value;
-                }
-            }
-            $queryInfo = sprintf(' with query params [%s]', implode(',', $parts));
+        if (null === $allowedMethods || [] === $allowedMethods) {
+            $allowedMethods = ['(any)'];
         }
 
-        throw new DuplicateRouteException(sprintf('Duplicate route detected; path "%s"%s answering to methods [%s]%s', $duplicate->getPath(), $queryInfo, implode(',', $allowedMethods), $name ? sprintf(', with name "%s"', $name) : ''));
+        $name  = $duplicate->getName();
+        $parts = $this->describeQueryParams($this->getQueryParamsFromRoute($duplicate));
+
+        throw new DuplicateRouteException(sprintf(
+            'Duplicate route detected; path "%s"%s answering to methods [%s]%s',
+            $duplicate->getPath(),
+            [] === $parts ? '' : sprintf(' with query params [%s]', implode(',', $parts)),
+            implode(',', $allowedMethods),
+            sprintf(', with name "%s"', $name),
+        ));
     }
 
     /**
@@ -169,28 +171,8 @@ final class QueryParamDuplicateRouteDetector
      */
     private function getQueryKey(Route $route): string
     {
-        $queryParams = $this->getQueryParamsFromRoute($route);
+        $parts = $this->describeQueryParams($this->getQueryParamsFromRoute($route));
 
-        if (empty($queryParams)) {
-            return ''; // Empty key for routes without query params
-        }
-
-        // Build key parts including values when constraints are present
-        $parts = [];
-        foreach ($queryParams as $key => $value) {
-            if (! is_string($key)) {
-                continue;
-            }
-            if ($value === null) {
-                // No value constraint, just use key
-                $parts[] = $key;
-            } elseif (is_scalar($value)) {
-                // Has value constraint, include it in the key
-                $parts[] = $key . '=' . (string) $value;
-            }
-        }
-
-        // Sort for order-independence
         sort($parts, SORT_STRING);
 
         return implode(',', $parts);
@@ -199,18 +181,70 @@ final class QueryParamDuplicateRouteDetector
     /**
      * Extract query parameter constraints from route options.
      *
-     * @return array<string, mixed> Map of param name => constraint value
+     * @return array<array-key, mixed> Map of param name => constraint value
      */
     private function getQueryParamsFromRoute(Route $route): array
     {
-        $options     = $route->getOptions();
-        $queryParams = $options['query_params'] ?? [];
+        $options = $route->getOptions();
 
-        if (! is_array($queryParams)) {
-            return [];
+        return $this->asArray($options['query_params'] ?? null);
+    }
+
+    private function remember(Route $route): void
+    {
+        $this->routeNames[$route->getName()] = $route;
+
+        $path     = $route->getPath();
+        $queryKey = $this->getQueryKey($route);
+
+        if ($route->allowsAnyMethod()) {
+            $this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_ANY] = $route;
         }
 
-        // @phpstan-ignore-next-line return.type - Route options contain mixed types
-        return $queryParams;
+        foreach ($route->getAllowedMethods() ?? [] as $method) {
+            $this->routePaths[$path][$queryKey][self::ROUTE_SEARCH_METHODS][$method] = $route;
+        }
+    }
+
+    /**
+     * @throws DuplicateRouteException On duplicate route detection.
+     */
+    private function throwOnDuplicate(Route $route): void
+    {
+        if (array_key_exists($route->getName(), $this->routeNames)) {
+            $this->duplicateRouteDetected($route);
+        }
+
+        $path     = $route->getPath();
+        $queryKey = $this->getQueryKey($route);
+        $entry    = $this->routePaths[$path][$queryKey] ?? null;
+
+        if (null === $entry) {
+            return;
+        }
+
+        if (array_key_exists(self::ROUTE_SEARCH_ANY, $entry)) {
+            $this->duplicateRouteDetected($route);
+        }
+
+        $hasSpecificMethods = array_key_exists(self::ROUTE_SEARCH_METHODS, $entry);
+
+        if ($route->allowsAnyMethod()) {
+            if ($hasSpecificMethods) {
+                $this->duplicateRouteDetected($route);
+            }
+
+            return;
+        }
+
+        $registered = $entry[self::ROUTE_SEARCH_METHODS] ?? [];
+
+        foreach ($route->getAllowedMethods() ?? [] as $method) {
+            if (! array_key_exists($method, $registered)) {
+                continue;
+            }
+
+            $this->duplicateRouteDetected($route);
+        }
     }
 }

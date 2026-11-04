@@ -1,14 +1,17 @@
 # QueryParamRoute
 
-`Webware\Router\QueryParamRoute` extends the standard Mezzio `Route` class to add support for query parameter-based matching.
+`Webware\Router\QueryParamRoute` wraps a Mezzio `Route` to add support for query parameter-based matching.
 
 ## Class Overview
+
+`Mezzio\Router\Route` is `final`, so `QueryParamRoute` composes one instead of extending it.
+Call `toRoute()` to obtain the wrapped route.
 
 ```php
 namespace Webware\Router;
 use Mezzio\Router\Route;
 use Psr\Http\Server\MiddlewareInterface;
-class QueryParamRoute extends Route
+final class QueryParamRoute implements MiddlewareInterface
 {
     public function __construct(
         string $path,
@@ -19,6 +22,7 @@ class QueryParamRoute extends Route
     );
     public function getQueryParamKeys(): array;
     public function matchesQueryParams(array $queryParams): bool;
+    public function toRoute(): Route;
 }
 
 ```
@@ -253,12 +257,13 @@ $options = $route->getOptions();
 
 This allows the router to access query parameter requirements even for standard `Route` objects.
 
-## Inheritance
+## Composition
 
-`QueryParamRoute` extends `Mezzio\Router\Route`, so it inherits all standard route functionality:
+`Mezzio\Router\Route` is `final`, so `QueryParamRoute` composes one and proxies the standard route
+surface. Call `toRoute()` when you need the wrapped `Route` itself:
 
 ```php
-// All standard Route methods work
+// Proxied standard Route methods work directly
 $route->getPath();              // '/api'
 $route->getName();              // 'api-route' or auto-generated
 $route->getMiddleware();        // MiddlewareInterface
@@ -266,6 +271,9 @@ $route->getAllowedMethods();    // ['GET', 'POST'] or null
 $route->allowsMethod('GET');    // true/false
 $route->allowsAnyMethod();      // true/false
 $route->process($request, $handler);  // Execute middleware
+
+// The wrapped Mezzio route
+$route->toRoute();              // Mezzio\Router\Route
 
 ```
 

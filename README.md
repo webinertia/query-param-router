@@ -15,7 +15,7 @@ A query-parameter-based `RouterInterface` implementation for routing requests to
 ## Installation
 
 ```bash
-composer require webware/smf-legacy-router
+composer require webware/query-param-router
 ```
 
 ## Basic Usage
@@ -337,36 +337,55 @@ $result->isFailure();  // true
 
 ## Development
 
+The toolchain runs in a container, so the host needs no PHP install.
+
+```shell
+docker compose up -d
+docker compose exec tooling composer install
+docker compose exec tooling composer test
+docker compose exec tooling composer test-integration
+docker compose exec tooling mago lint
+docker compose down
+```
+
 ### Running Tests
 
 ```bash
 # All tests
-vendor/bin/phpunit
+docker compose exec tooling composer test-all
 
 # Unit tests only
-vendor/bin/phpunit test/unit/
+docker compose exec tooling composer test
 
 # Integration tests only
-vendor/bin/phpunit test/integration/
+docker compose exec tooling composer test-integration
 
 # With coverage
-vendor/bin/phpunit --coverage-html coverage/
+docker compose exec tooling composer test-coverage
 ```
 
 ### Code Quality
 
-```bash
-# Static analysis
-vendor/bin/phpstan analyse
+Four Mago gates must be clean: `fmt --check`, `lint`, `analyze`, `guard`. Mago is invoked
+directly as a binary and is never proxied through a composer script.
 
-# Code style check
-vendor/bin/php-cs-fixer fix --dry-run --diff
+```bash
+docker compose exec tooling mago fmt --check
+docker compose exec tooling mago lint
+docker compose exec tooling mago analyze
+docker compose exec tooling mago guard
+```
+
+Mutation testing runs Infection with threads capped at 4:
+
+```bash
+docker compose exec tooling composer mutation-test
 ```
 
 ## Requirements
 
-- PHP 8.0+
-- [mezzio/mezzio-router](https://github.com/mezzio/mezzio-router) ^3.13
+- PHP ~8.4.1 || ~8.5.0
+- [mezzio/mezzio-router](https://github.com/mezzio/mezzio-router) ^3.15 || ^4.0
 - [laminas/laminas-stratigility](https://github.com/laminas/laminas-stratigility) ^3.10 (for integration)
 
 ## License
@@ -383,5 +402,5 @@ Contributions welcome! Please ensure all tests pass and follow existing code sty
 
 ## Support
 
-- [GitHub Issues](https://github.com/tyrsson/smf-legacy-router/issues)
-- [GitHub Discussions](https://github.com/tyrsson/smf-legacy-router/discussions)
+- [GitHub Issues](https://github.com/webinertia/query-param-router/issues)
+- [GitHub Discussions](https://github.com/webinertia/query-param-router/discussions)

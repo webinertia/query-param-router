@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -15,17 +15,23 @@ declare(strict_types=1);
 namespace Webware\Router;
 
 use Mezzio\Router\Route;
+use Override;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
+use function array_key_exists;
 use function array_keys;
-use function array_is_list;
 use function implode;
-use function is_int;
+use function is_array;
+use function is_scalar;
+use function is_string;
 
 /**
  * Route that matches based on query parameters in addition to path and HTTP method.
  *
- * Extends the standard Route to support matching based on query parameter keys and values.
+ * Wraps a Mezzio Route and adds matching on query parameter keys and values.
  * Routes match when all required query parameter keys are present in the request
  * (case-sensitive). Additional query parameters are allowed.
  *
@@ -34,12 +40,18 @@ use function is_int;
  * 2. Associative array with constraints: ['action' => 'profile', 'u' => null] - matches
  *    specific values, or any value when constraint is null
  *
- * @final
- *
- * @phpstan-ignore-next-line
+ * Mezzio\Router\Route is final, so this class composes one rather than extending
+ * it. Call toRoute() to obtain the wrapped Route, or pass this instance directly
+ * to QueryParamRouter::addRoute().
  */
-class QueryParamRoute extends Route
+final class QueryParamRoute implements MiddlewareInterface
 {
+    public const ?string HTTP_METHOD_ANY = Route::HTTP_METHOD_ANY;
+
+    public const string HTTP_METHOD_SEPARATOR = Route::HTTP_METHOD_SEPARATOR;
+
+    private readonly Route $route;
+
     /**
      * Query parameter constraints (param name => value constraint)
      * Value of null means any value is acceptable
@@ -49,8 +61,10 @@ class QueryParamRoute extends Route
     private array $queryParamConstraints = [];
 
     /**
+     * @param non-empty-string $path
      * @param array<string, mixed>|list<string> $queryParamKeys Query parameter keys (backward compatible)
      *        or constraints (key => value pairs, null value = any value)
+     * @param list<string>|null $methods
      */
     public function __construct(
         string $path,
@@ -59,30 +73,58 @@ class QueryParamRoute extends Route
         ?array $methods = self::HTTP_METHOD_ANY,
         ?string $name = null,
     ) {
-        // Normalize query params to constraints format
         $this->queryParamConstraints = $this->normalizeQueryParams($queryParamKeys);
 
-        // Generate name before calling parent constructor if name not provided
-        if ($name === null || $name === '') {
+        if (null === $name || '' === $name) {
             $name = $this->generateName($path, $this->queryParamConstraints, $methods);
         }
 
-        parent::__construct($path, $middleware, $methods, $name);
+        $this->route = new Route($path, $middleware, $methods, $name);
 
-        // Store query param constraints in options for router access
-        $options                 = $this->getOptions();
+        $options                 = $this->route->getOptions();
         $options['query_params'] = $this->queryParamConstraints;
-        $this->setOptions($options);
+        $this->route->setOptions($options);
+    }
+
+    public function allowsAnyMethod(): bool
+    {
+        return $this->route->allowsAnyMethod();
+    }
+
+    public function allowsMethod(string $method): bool
+    {
+        return $this->route->allowsMethod($method);
     }
 
     /**
-     * Get the required query parameter keys for this route.
-     *
-     * @return list<string>
+     * @return null|list<string> Returns HTTP_METHOD_ANY or array of allowed methods.
      */
-    public function getQueryParamKeys(): array
+    public function getAllowedMethods(): ?array
     {
-        return array_keys($this->queryParamConstraints);
+        return $this->route->getAllowedMethods();
+    }
+
+    public function getMiddleware(): MiddlewareInterface
+    {
+        return $this->route->getMiddleware();
+    }
+
+    public function getName(): string
+    {
+        return $this->route->getName();
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    public function getOptions(): array
+    {
+        return $this->route->getOptions();
+    }
+
+    public function getPath(): string
+    {
+        return $this->route->getPath();
     }
 
     /**
@@ -96,6 +138,16 @@ class QueryParamRoute extends Route
     }
 
     /**
+     * Get the required query parameter keys for this route.
+     *
+     * @return list<string>
+     */
+    public function getQueryParamKeys(): array
+    {
+        return array_keys($this->queryParamConstraints);
+    }
+
+    /**
      * Check if the given query parameters match this route's requirements.
      *
      * All required query parameter keys must be present (case-sensitive).
@@ -106,20 +158,15 @@ class QueryParamRoute extends Route
      */
     public function matchesQueryParams(array $queryParams): bool
     {
-        // If no query params required, match any query params
-        if (empty($this->queryParamConstraints)) {
-            return true;
-        }
-
-        // Check all required keys are present and values match constraints
-        foreach ($this->queryParamConstraints as $paramName => $constraint) {
-            // Key must be present
+        foreach (array_keys($this->queryParamConstraints) as $paramName) {
             if (! array_key_exists($paramName, $queryParams)) {
                 return false;
             }
 
-            // If constraint is not null, value must match exactly
-            if ($constraint !== null && $queryParams[$paramName] !== $constraint) {
+            if (! $this->constraintSatisfied(
+                $this->queryParamConstraints[$paramName] ?? null,
+                $queryParams[$paramName] ?? null,
+            )) {
                 return false;
             }
         }
@@ -128,36 +175,93 @@ class QueryParamRoute extends Route
     }
 
     /**
-     * Normalize query params input to constraints format.
-     *
-     * Supports backward compatibility:
-     * - Indexed array ['action', 'u'] => ['action' => null, 'u' => null]
-     * - Associative array ['action' => 'profile', 'u' => null] => unchanged
-     *
-     * @param array<string, mixed>|list<string> $queryParams
-     * @return array<string, mixed>
+     * Proxies to the middleware composed during instantiation.
      */
-    private function normalizeQueryParams(array $queryParams): array
+    #[Override]
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if (empty($queryParams)) {
-            return [];
+        return $this->route->process($request, $handler);
+    }
+
+    /**
+     * @param non-empty-string $name
+     */
+    public function setName(string $name): void
+    {
+        $this->route->setName($name);
+    }
+
+    /**
+     * Replace the wrapped route options.
+     *
+     * The query_params option is always re-applied so the constraints this
+     * instance was built with cannot be dropped by a caller.
+     *
+     * @param array<array-key, mixed> $options
+     */
+    public function setOptions(array $options): void
+    {
+        $options['query_params'] = $this->queryParamConstraints;
+
+        $this->route->setOptions($options);
+    }
+
+    /**
+     * Return the wrapped Mezzio route.
+     */
+    public function toRoute(): Route
+    {
+        return $this->route;
+    }
+
+    private function asParamName(mixed $value): ?string
+    {
+        return is_string($value) ? $value : null;
+    }
+
+    private function constraintSatisfied(mixed $constraint, mixed $value): bool
+    {
+        return null === $constraint || $value === $constraint;
+    }
+
+    /**
+     * Render a single constraint for route name generation.
+     *
+     * A null constraint renders as the bare key; scalar constraints render as
+     * key=value; anything else is omitted.
+     */
+    private function describeConstraint(string $key, mixed $value): ?string
+    {
+        if (null === $value) {
+            return $key;
         }
 
-        // Check if it's an indexed array (list of strings)
-        if (array_is_list($queryParams)) {
-            // Convert ['action', 'u'] to ['action' => null, 'u' => null]
-            $normalized = [];
-            foreach ($queryParams as $key) {
-                if (is_string($key)) {
-                    $normalized[$key] = null;
-                }
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        return $key . '=' . (string) $value;
+    }
+
+    /**
+     * @param array<string, mixed> $queryParamConstraints
+     * @return list<string>
+     */
+    private function describeConstraints(array $queryParamConstraints): array
+    {
+        $parts = [];
+
+        foreach (array_keys($queryParamConstraints) as $key) {
+            $part = $this->describeConstraint($key, $queryParamConstraints[$key] ?? null);
+
+            if (null === $part) {
+                continue;
             }
-            return $normalized;
+
+            $parts[] = $part;
         }
 
-        // Already associative, return as-is
-        // @phpstan-ignore-next-line return.type - Input allows mixed keys
-        return $queryParams;
+        return $parts;
     }
 
     /**
@@ -177,26 +281,46 @@ class QueryParamRoute extends Route
     {
         $name = $path;
 
-        // Add query params if present
-        if (! empty($queryParamConstraints)) {
-            $parts = [];
-            foreach ($queryParamConstraints as $key => $value) {
-                if ($value === null) {
-                    // No value constraint, just show key
-                    $parts[] = $key;
-                } elseif (is_scalar($value)) {
-                    // Has value constraint, show key=value
-                    $parts[] = $key . '=' . (string) $value;
-                }
-            }
-            $name .= '?' . implode('&', $parts);
+        if ([] !== $queryParamConstraints) {
+            $name .= '?' . implode('&', $this->describeConstraints($queryParamConstraints));
         }
 
-        // Add methods if specified
         if (is_array($methods)) {
             $name .= '^' . implode(self::HTTP_METHOD_SEPARATOR, $methods);
         }
 
         return $name;
+    }
+
+    /**
+     * Normalize query params input to constraints format.
+     *
+     * Supports backward compatibility:
+     * - Indexed array ['action', 'u'] => ['action' => null, 'u' => null]
+     * - Associative array ['action' => 'profile', 'u' => null] => unchanged
+     *
+     * @param array<array-key, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    private function normalizeQueryParams(array $queryParams): array
+    {
+        $normalized = [];
+
+        foreach (array_keys($queryParams) as $key) {
+            if (is_string($key)) {
+                $normalized[$key] = $queryParams[$key] ?? null;
+                continue;
+            }
+
+            $listKey = $this->asParamName($queryParams[$key] ?? null);
+
+            if (null === $listKey) {
+                continue;
+            }
+
+            $normalized[$listKey] = null;
+        }
+
+        return $normalized;
     }
 }
