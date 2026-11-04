@@ -27,8 +27,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Webware\Router\Http\QueryParamRoute;
 use Webware\Router\QueryParamDuplicateRouteDetector;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 
 #[CoversClass(QueryParamRouter::class)]

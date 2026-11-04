@@ -12,7 +12,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace Webware\Router\Http;
+namespace Webware\Router;
 
 use Mezzio\Router\Route;
 use Override;

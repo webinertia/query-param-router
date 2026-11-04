@@ -21,7 +21,6 @@ use Mezzio\Router\RouteResult;
 use Mezzio\Router\RouterInterface;
 use Override;
 use Psr\Http\Message\ServerRequestInterface;
-use Webware\Router\Http\QueryParamRoute;
 
 use function array_key_exists;
 use function array_keys;

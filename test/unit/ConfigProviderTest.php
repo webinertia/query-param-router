@@ -22,9 +22,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Webware\Router\ConfigProvider;
-use Webware\Router\Http\QueryParamRoute;
 use Webware\Router\QueryParamDuplicateRouteDetector;
 use Webware\Router\QueryParamDuplicateRouteDetectorFactory;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 use Webware\Router\QueryParamRouterFactory;
 

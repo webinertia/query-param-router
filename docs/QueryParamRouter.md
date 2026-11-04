@@ -135,7 +135,7 @@ $uri = $router->generateUri('user-route', ['id' => '42'], ['query' => ['action' 
 ### Basic Routing
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 $router = new QueryParamRouter();
 // Add route

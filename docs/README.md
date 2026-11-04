@@ -14,7 +14,7 @@ composer require webware/query-param-router
 ### Basic Usage
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 $router = new QueryParamRouter();
 // Create a route that requires 'action' query parameter
@@ -84,7 +84,7 @@ Request → QueryParamRouter → Match by:
 ## Basic Example
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 use Webware\Router\QueryParamDuplicateRouteDetector;
 // Create router with duplicate detection

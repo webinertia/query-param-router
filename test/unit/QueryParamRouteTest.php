@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Server\MiddlewareInterface;
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 
 #[CoversClass(QueryParamRoute::class)]
 class QueryParamRouteTest extends TestCase

@@ -18,7 +18,7 @@ Real-world usage examples for Query Parameter Router.
 Route legacy SMF-style URLs like `index.php?board=1&action=display`:
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 $router = new QueryParamRouter(new QueryParamDuplicateRouteDetector());
 // Board display: index.php?board=1
@@ -176,7 +176,7 @@ class ApiMiddleware implements MiddlewareInterface
 ### Complete Forum Routing
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 use Webware\Router\QueryParamDuplicateRouteDetector;
 class ForumRouterFactory

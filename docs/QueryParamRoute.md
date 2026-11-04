@@ -1,6 +1,6 @@
 # QueryParamRoute
 
-`Webware\Router\Http\QueryParamRoute` wraps a Mezzio `Route` to add support for query parameter-based matching.
+`Webware\Router\QueryParamRoute` wraps a Mezzio `Route` to add support for query parameter-based matching.
 
 ## Class Overview
 
@@ -8,7 +8,7 @@
 Call `toRoute()` to obtain the wrapped route.
 
 ```php
-namespace Webware\Router\Http;
+namespace Webware\Router;
 use Mezzio\Router\Route;
 use Psr\Http\Server\MiddlewareInterface;
 final class QueryParamRoute implements MiddlewareInterface
@@ -133,7 +133,7 @@ $route->matchesQueryParams([]);
 ### Basic Route
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 $route = new QueryParamRoute(
     '/forum',
     $displayBoardMiddleware,

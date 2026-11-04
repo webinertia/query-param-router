@@ -311,7 +311,7 @@ class AppFactory
 
 ```php
 // config/routes.php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 return function ($app, $factory, $container) {
     // Add routes to the application
     $app->route('/forum', QueryParamRoute::class, ['action'])

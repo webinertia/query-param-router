@@ -21,8 +21,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Server\MiddlewareInterface;
-use Webware\Router\Http\QueryParamRoute;
 use Webware\Router\QueryParamDuplicateRouteDetector;
+use Webware\Router\QueryParamRoute;
 
 #[CoversClass(QueryParamDuplicateRouteDetector::class)]
 #[UsesClass(QueryParamRoute::class)]

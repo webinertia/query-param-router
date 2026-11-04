@@ -23,7 +23,7 @@ composer require webware/query-param-router
 ### Simple Route Registration
 
 ```php
-use Webware\Router\Http\QueryParamRoute;
+use Webware\Router\QueryParamRoute;
 use Webware\Router\QueryParamRouter;
 use Laminas\Diactoros\ServerRequest;
 

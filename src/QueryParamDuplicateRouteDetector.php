@@ -16,7 +16,6 @@ namespace Webware\Router;
 
 use Mezzio\Router\Exception\DuplicateRouteException;
 use Mezzio\Router\Route;
-use Webware\Router\Http\QueryParamRoute;
 
 use function array_key_exists;
 use function array_keys;
