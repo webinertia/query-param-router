@@ -191,7 +191,7 @@ Exception message includes:
 
 ```php
 use Webware\Router\QueryParamDuplicateRouteDetector;
-use Webware\Router\QueryParamRoute;
+use Webware\Router\Http\QueryParamRoute;
 $detector = new QueryParamDuplicateRouteDetector();
 // Register routes
 $routes = [

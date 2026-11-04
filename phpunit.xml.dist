@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.4/phpunit.xsd"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
          cacheDirectory=".phpunit.cache"
          requireCoverageMetadata="true"
-         displayDetailsOnAllIssues="true"
          failOnNotice="true"
          failOnDeprecation="true"
          failOnWarning="true">
@@ -18,7 +17,7 @@
             <directory>./test/integration</directory>
         </testsuite>
     </testsuites>
-    <source restrictNotices="true">
+    <source restrictNotices="true" ignoreIndirectDeprecations="true">
         <include>
             <directory suffix=".php">src</directory>
         </include>

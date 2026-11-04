@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -14,17 +14,22 @@ declare(strict_types=1);
 
 namespace Webware\Router;
 
+use Mezzio\Router\Exception\DuplicateRouteException;
 use Mezzio\Router\Exception\RuntimeException;
 use Mezzio\Router\Route;
 use Mezzio\Router\RouteResult;
 use Mezzio\Router\RouterInterface;
+use Override;
 use Psr\Http\Message\ServerRequestInterface;
+use Webware\Router\Http\QueryParamRoute;
 
 use function array_key_exists;
-use function array_is_list;
+use function array_keys;
 use function count;
 use function http_build_query;
-use function is_int;
+use function is_array;
+use function is_scalar;
+use function is_string;
 use function sprintf;
 use function str_replace;
 
@@ -41,14 +46,14 @@ final class QueryParamRouter implements RouterInterface
     /**
      * Routes indexed by name
      *
-     * @var array<string, Route>
+     * @var array<string, QueryParamRoute|Route>
      */
     private array $routes = [];
 
     /**
      * Routes indexed by path for faster lookup
      *
-     * @var array<string, list<Route>>
+     * @var array<string, list<QueryParamRoute|Route>>
      */
     private array $routesByPath = [];
 
@@ -56,22 +61,53 @@ final class QueryParamRouter implements RouterInterface
         private ?QueryParamDuplicateRouteDetector $duplicateDetector = null,
     ) {}
 
-    public function addRoute(Route $route): void
+    /**
+     * @throws DuplicateRouteException When the duplicate detector rejects the route.
+     */
+    #[Override]
+    public function addRoute(Route|QueryParamRoute $route): void
     {
-        if ($this->duplicateDetector !== null) {
-            $this->duplicateDetector->detectDuplicate($route);
+        if (null !== $this->duplicateDetector) {
+            $this->duplicateDetector->detectDuplicate($route instanceof QueryParamRoute ? $route->toRoute() : $route);
         }
 
         $this->routes[$route->getName()] = $route;
 
-        // Index by path for faster matching
-        $path = $route->getPath();
-        if (! isset($this->routesByPath[$path])) {
-            $this->routesByPath[$path] = [];
-        }
-        $this->routesByPath[$path][] = $route;
+        $this->routesByPath[$route->getPath()][] = $route;
     }
 
+    /**
+     * @param array<array-key, mixed> $substitutions
+     * @param array<array-key, mixed> $options
+     */
+    #[Override]
+    public function generateUri(string $name, array $substitutions = [], array $options = []): string
+    {
+        if (! array_key_exists($name, $this->routes)) {
+            throw new RuntimeException(sprintf('Cannot generate URI for route "%s"; route not found', $name));
+        }
+
+        $route = $this->routes[$name];
+        $path  = $route->getPath();
+
+        foreach (array_keys($substitutions) as $key) {
+            $path = $this->replaceSubstitution($path, $key, $substitutions[$key] ?? null);
+        }
+
+        $query = [];
+
+        if (is_array($options['query'] ?? null)) {
+            $query = $options['query'];
+        }
+
+        if ([] !== $query) {
+            $path .= '?' . http_build_query($query);
+        }
+
+        return $path;
+    }
+
+    #[Override]
     public function match(ServerRequestInterface $request): RouteResult
     {
         $path   = $request->getUri()->getPath();
@@ -80,181 +116,36 @@ final class QueryParamRouter implements RouterInterface
         /** @var array<string, mixed> $queryParams */
         $queryParams = $request->getQueryParams();
 
-        // Find routes matching this path
         $candidateRoutes = $this->routesByPath[$path] ?? [];
-
-        if (empty($candidateRoutes)) {
-            return RouteResult::fromRouteFailure(null);
-        }
-
-        // Find best matching route based on query params and method
-        $bestMatch      = null;
-        $bestMatchScore = -1;
+        $bestMatch       = null;
 
         foreach ($candidateRoutes as $route) {
-            // Check if query params match
             if (! $this->routeMatchesQueryParams($route, $queryParams)) {
                 continue;
             }
 
-            // Check if HTTP method matches
             if (! $route->allowsMethod($method)) {
                 continue;
             }
 
-            // Calculate match score
-            // Higher score = more specific match
-            // - Base score: number of query param keys
-            // - Bonus: +100 for each parameter with a specific value constraint
-            $constraints = $this->getRouteQueryParamConstraints($route);
-            $score       = count($constraints);
-            
-            // Add bonus for value-specific constraints
-            foreach ($constraints as $value) {
-                if ($value !== null) {
-                    $score += 100; // Large bonus for value-specific matching
-                }
-            }
-
-            if ($score > $bestMatchScore) {
-                $bestMatch      = $route;
-                $bestMatchScore = $score;
+            if (null === $bestMatch || $this->scoreRoute($route) > $this->scoreRoute($bestMatch)) {
+                $bestMatch = $route;
             }
         }
 
-        if ($bestMatch === null) {
+        if (null === $bestMatch) {
             return RouteResult::fromRouteFailure(null);
         }
 
-        // Extract matched query param values
-        $matchedParams = $this->extractMatchedQueryParams($bestMatch, $queryParams);
-
-        return RouteResult::fromRoute($bestMatch, $matchedParams);
+        return RouteResult::fromRoute(
+            $bestMatch instanceof QueryParamRoute ? $bestMatch->toRoute() : $bestMatch,
+            $this->extractMatchedQueryParams($bestMatch, $queryParams),
+        );
     }
 
-    /**
-     * @param array<string, mixed> $substitutions
-     * @param array<string, mixed> $options
-     */
-    public function generateUri(string $name, array $substitutions = [], array $options = []): string
+    private function asParamName(mixed $value): ?string
     {
-        if (! isset($this->routes[$name])) {
-            throw new RuntimeException(sprintf('Cannot generate URI for route "%s"; route not found', $name));
-        }
-
-        $route = $this->routes[$name];
-        $path  = $route->getPath();
-
-        // Perform substitutions for path parameters (e.g., /users/{id})
-        foreach ($substitutions as $key => $value) {
-            if (is_scalar($value)) {
-                $path = str_replace('{' . $key . '}', (string) $value, $path);
-            }
-        }
-
-        // Add query parameters if provided
-        if (isset($options['query']) && is_array($options['query']) && ! empty($options['query'])) {
-            $path .= '?' . http_build_query($options['query']);
-        }
-
-        return $path;
-    }
-
-    /**
-     * Check if route's query param requirements match the request's query params.
-     *
-     * @param array<string, mixed> $queryParams
-     */
-    private function routeMatchesQueryParams(Route $route, array $queryParams): bool
-    {
-        if ($route instanceof QueryParamRoute) {
-            return $route->matchesQueryParams($queryParams);
-        }
-
-        // For standard routes, check if query_params option exists
-        $options     = $route->getOptions();
-        $constraints = $options['query_params'] ?? [];
-
-        if (! is_array($constraints) || empty($constraints)) {
-            return true; // No query params required
-        }
-
-        // Handle both old format (list) and new format (constraints)
-        foreach ($constraints as $key => $value) {
-            // If numeric key, it's old format (list of keys)
-            if (is_int($key)) {
-                if (! is_string($value) || ! array_key_exists($value, $queryParams)) {
-                    return false;
-                }
-            } else {
-                // New format (key => constraint)
-                if (! array_key_exists($key, $queryParams)) {
-                    return false;
-                }
-                // Check value constraint if not null
-                if ($value !== null && $queryParams[$key] !== $value) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Get query param keys from route.
-     *
-     * @return list<string>
-     */
-    private function getRouteQueryParamKeys(Route $route): array
-    {
-        if ($route instanceof QueryParamRoute) {
-            return $route->getQueryParamKeys();
-        }
-
-        $options     = $route->getOptions();
-        $queryParams = $options['query_params'] ?? [];
-
-        if (! is_array($queryParams)) {
-            return [];
-        }
-
-        // Handle both formats: list or associative array
-        return array_keys($queryParams);
-    }
-
-    /**
-     * Get query param constraints from route.
-     *
-     * @return array<string, mixed> Map of param name => constraint value
-     */
-    private function getRouteQueryParamConstraints(Route $route): array
-    {
-        if ($route instanceof QueryParamRoute) {
-            return $route->getQueryParamConstraints();
-        }
-
-        $options     = $route->getOptions();
-        $queryParams = $options['query_params'] ?? [];
-
-        if (! is_array($queryParams)) {
-            return [];
-        }
-
-        // If it's an indexed array (old format), convert to constraints
-        if (array_is_list($queryParams)) {
-            $constraints = [];
-            foreach ($queryParams as $key) {
-                if (is_string($key)) {
-                    $constraints[$key] = null;
-                }
-            }
-            return $constraints;
-        }
-
-        // Already in constraint format
-        // @phpstan-ignore-next-line return.type - Route options contain mixed types
-        return $queryParams;
+        return is_string($value) ? $value : null;
     }
 
     /**
@@ -265,21 +156,112 @@ final class QueryParamRouter implements RouterInterface
      * @param array<string, mixed> $queryParams
      * @return array<string, mixed>
      */
-    private function extractMatchedQueryParams(Route $route, array $queryParams): array
+    private function extractMatchedQueryParams(Route|QueryParamRoute $route, array $queryParams): array
     {
-        $requiredKeys = $this->getRouteQueryParamKeys($route);
-
-        if (empty($requiredKeys)) {
-            return [];
-        }
-
         $matched = [];
-        foreach ($requiredKeys as $key) {
-            if (is_string($key) && array_key_exists($key, $queryParams)) {
-                $matched[$key] = $queryParams[$key];
+
+        foreach (array_keys($this->getRouteQueryParamConstraints($route)) as $key) {
+            if (! array_key_exists($key, $queryParams)) {
+                continue;
             }
+
+            $matched[$key] = $queryParams[$key] ?? null;
         }
 
         return $matched;
+    }
+
+    /**
+     * Read the route's query param constraints in either supported format.
+     *
+     * Accepts a list of keys (['action', 'u']) or a map of constraints
+     * (['action' => 'profile', 'u' => null]) and normalizes both to a map of
+     * param name => constraint value, where null means any value matches.
+     *
+     * @return array<string, mixed>
+     */
+    private function getRouteQueryParamConstraints(Route|QueryParamRoute $route): array
+    {
+        $options     = $route->getOptions();
+        $queryParams = [];
+
+        if (is_array($options['query_params'] ?? null)) {
+            $queryParams = $options['query_params'];
+        }
+
+        $constraints = [];
+
+        foreach (array_keys($queryParams) as $key) {
+            if (is_string($key)) {
+                $constraints[$key] = $queryParams[$key] ?? null;
+                continue;
+            }
+
+            $listKey = $this->asParamName($queryParams[$key] ?? null);
+
+            if (null === $listKey) {
+                continue;
+            }
+
+            $constraints[$listKey] = null;
+        }
+
+        return $constraints;
+    }
+
+    /**
+     * Replace a single `{name}` path segment with its substitution value.
+     */
+    private function replaceSubstitution(string $path, int|string $key, mixed $value): string
+    {
+        if (! is_scalar($value)) {
+            return $path;
+        }
+
+        return str_replace("{{$key}}", (string) $value, $path);
+    }
+
+    /**
+     * Check if route's query param requirements match the request's query params.
+     *
+     * @param array<string, mixed> $queryParams
+     */
+    private function routeMatchesQueryParams(Route|QueryParamRoute $route, array $queryParams): bool
+    {
+        $constraints = $this->getRouteQueryParamConstraints($route);
+
+        foreach (array_keys($constraints) as $key) {
+            if (! array_key_exists($key, $queryParams)) {
+                return false;
+            }
+
+            if (null !== ($constraints[$key] ?? null) && $queryParams[$key] !== $constraints[$key]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Score a route so the most specific match wins.
+     *
+     * The score is the number of query parameter keys, plus a large bonus for
+     * each parameter carrying a specific value constraint.
+     */
+    private function scoreRoute(Route|QueryParamRoute $route): int
+    {
+        $constraints = $this->getRouteQueryParamConstraints($route);
+        $score       = count($constraints);
+
+        foreach (array_keys($constraints) as $key) {
+            if (null === ($constraints[$key] ?? null)) {
+                continue;
+            }
+
+            $score += 100;
+        }
+
+        return $score;
     }
 }

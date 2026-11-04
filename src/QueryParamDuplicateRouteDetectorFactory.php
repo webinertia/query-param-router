@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -21,7 +21,7 @@ use Psr\Container\ContainerInterface;
  */
 final class QueryParamDuplicateRouteDetectorFactory
 {
-    public function __invoke(ContainerInterface $container): QueryParamDuplicateRouteDetector
+    public function __invoke(ContainerInterface $_container): QueryParamDuplicateRouteDetector
     {
         return new QueryParamDuplicateRouteDetector();
     }

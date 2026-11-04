@@ -1,13 +1,17 @@
 /.gitattributes export-ignore
 /.github/ export-ignore
 /.gitignore export-ignore
-/.laminas-ci.json export-ignore
-/phpunit.xml.dist export-ignore
-/.php-cs-fixer.dist.php export-ignore
-/coveralls.yml export-ignore
-/clover.xml export-ignore
 /renovate.json export-ignore
+/phpunit.xml.dist export-ignore
 /test/ export-ignore
+/clover.xml export-ignore
+/mago.toml export-ignore
+/infection.json5.dist export-ignore
+/codecov.yml export-ignore
+/compose.yml export-ignore
+/Dockerfile export-ignore
+/.dockerignore export-ignore
+/.devcontainer/ export-ignore
 
 # Force our line endings to be LF, even for Windows
 * text eol=lf

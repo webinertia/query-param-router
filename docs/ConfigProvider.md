@@ -198,7 +198,7 @@ return [
 ### 1. Install Dependencies
 
 ```bash
-composer require webware/smf-legacy-router
+composer require webware/query-param-router
 composer require laminas/laminas-config-aggregator
 composer require laminas/laminas-servicemanager
 
@@ -311,7 +311,7 @@ class AppFactory
 
 ```php
 // config/routes.php
-use Webware\Router\QueryParamRoute;
+use Webware\Router\Http\QueryParamRoute;
 return function ($app, $factory, $container) {
     // Add routes to the application
     $app->route('/forum', QueryParamRoute::class, ['action'])

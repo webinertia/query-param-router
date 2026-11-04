@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of the Webware Smf Legacy Router package.
+ * This file is part of the Webware Query Param Router package.
  *
  * Copyright (c) 2026 Joey (aka Tyrsson) Smith <jsmith@webinertia.net>
  * and contributors.
@@ -14,7 +14,12 @@ declare(strict_types=1);
 
 namespace Webware\Router;
 
+use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
+use Psr\Container\NotFoundExceptionInterface;
+
+use function is_array;
+use function is_bool;
 
 /**
  * Factory for creating QueryParamRouter instances.
@@ -24,29 +29,64 @@ use Psr\Container\ContainerInterface;
  */
 final class QueryParamRouterFactory
 {
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function asArray(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
+    }
+
+    private function asBool(mixed $value, bool $default): bool
+    {
+        return is_bool($value) ? $value : $default;
+    }
+
+    private function asDuplicateDetector(mixed $value): QueryParamDuplicateRouteDetector
+    {
+        return $value instanceof QueryParamDuplicateRouteDetector ? $value : new QueryParamDuplicateRouteDetector();
+    }
+
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    private function getDuplicateDetector(ContainerInterface $container): QueryParamDuplicateRouteDetector
+    {
+        if (! $container->has(QueryParamDuplicateRouteDetector::class)) {
+            return new QueryParamDuplicateRouteDetector();
+        }
+
+        return $this->asDuplicateDetector($container->get(QueryParamDuplicateRouteDetector::class));
+    }
+
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     * @return array<array-key, mixed>
+     */
+    private function getRouterConfig(ContainerInterface $container): array
+    {
+        if (! $container->has('config')) {
+            return [];
+        }
+
+        $config = $this->asArray($container->get('config'));
+
+        return $this->asArray($config[QueryParamRouter::class] ?? null);
+    }
+
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
     public function __invoke(ContainerInterface $container): QueryParamRouter
     {
-        $config = $container->has('config') ? $container->get('config') : [];
+        $routerConfig = $this->getRouterConfig($container);
 
-        if (! is_array($config)) {
-            $config = [];
-        }
-
-        $routerConfig = $config[QueryParamRouter::class] ?? [];
-
-        if (! is_array($routerConfig)) {
-            $routerConfig = [];
-        }
-
-        // Default to enabling duplicate detection
-        $detectDuplicates = $routerConfig['detect_duplicates'] ?? true;
-
-        $detector = null;
-        if ($detectDuplicates) {
-            $detector = $container->has(QueryParamDuplicateRouteDetector::class)
-                ? $container->get(QueryParamDuplicateRouteDetector::class)
-                : new QueryParamDuplicateRouteDetector();
-        }
+        $detector = $this->asBool($routerConfig['detect_duplicates'] ?? null, true)
+            ? $this->getDuplicateDetector($container)
+            : null;
 
         return new QueryParamRouter($detector);
     }
