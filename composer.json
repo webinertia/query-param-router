@@ -44,7 +44,7 @@
     "require-dev": {
         "infection/infection": "^0.35.0",
         "laminas/laminas-diactoros": "^3.2",
-        "laminas/laminas-stratigility": "^3.10",
+        "laminas/laminas-stratigility": "^4.0",
         "phpunit/phpunit": "^13.4.4",
         "psr/http-server-handler": "^1.0",
         "roave/backward-compatibility-check": "^8.21.0",
