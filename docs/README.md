@@ -7,9 +7,11 @@ Welcome to the comprehensive documentation for Query Parameter Router, a query-p
 ### Installation
 
 ```bash
-composer require webware/query-param-router
+composer require webware/query-param-router:@alpha
 
 ```
+
+The `@alpha` suffix is needed while the package is pre-1.0: only pre-release versions are published, and Composer skips those by default.
 
 ### Basic Usage
 
