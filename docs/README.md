@@ -7,11 +7,11 @@ Welcome to the comprehensive documentation for Query Parameter Router, a query-p
 ### Installation
 
 ```bash
-composer require webware/query-param-router:@alpha
+composer require webware/query-param-router
 
 ```
 
-The `@alpha` suffix is needed while the package is pre-1.0: only pre-release versions are published, and Composer skips those by default.
+`webware/query-param-router` is currently a pre-release, so the consuming project's root must allow pre-release stability. The Webware application skeleton declares `minimum-stability: dev` with `prefer-stable: true`, which satisfies that, so no stability change is needed. Every runtime dependency of the router is stable, so the router is the only pre-release in the graph.
 
 ### Basic Usage
 
