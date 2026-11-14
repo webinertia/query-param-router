@@ -1,6 +1,6 @@
-# Query Parameter Router Documentation
+# Query Parameter Router Documentation (1.0)
 
-Welcome to the comprehensive documentation for Query Parameter Router, a query-parameter-based routing implementation for Mezzio and Laminas applications.
+Welcome to the documentation for Query Parameter Router, a query-parameter-based routing implementation for Mezzio and Laminas applications. This page covers the 1.0 release line.
 
 ## Quick Start
 
@@ -54,15 +54,15 @@ The Query Parameter Router extends standard Mezzio routing by adding support for
 
 ### Core Components
 
-- **[QueryParamRoute](QueryParamRoute.md)** - Route definition with query parameter support
-- **[QueryParamRouter](QueryParamRouter.md)** - Main router implementation
-- **[QueryParamDuplicateRouteDetector](QueryParamDuplicateRouteDetector.md)** - Duplicate route detection
+- **[QueryParamRoute](./QueryParamRoute.md)** - Route definition with query parameter support
+- **[QueryParamRouter](./QueryParamRouter.md)** - Main router implementation
+- **[QueryParamDuplicateRouteDetector](./QueryParamDuplicateRouteDetector.md)** - Duplicate route detection
 
 ### Configuration & Integration
 
-- **[ConfigProvider](ConfigProvider.md)** - Service Manager configuration
-- **[Configuration Guide](Configuration.md)** - Complete configuration options
-- **[Examples](Examples.md)** - Real-world usage examples
+- **[ConfigProvider](./ConfigProvider.md)** - Service Manager configuration
+- **[Configuration Guide](./Configuration.md)** - Complete configuration options
+- **[Examples](./Examples.md)** - Real-world usage examples
 
 ## Architecture Overview
 
@@ -233,10 +233,10 @@ $route = new QueryParamRoute(
 
 ## Next Steps
 
-- Read the [QueryParamRoute documentation](QueryParamRoute.md) to learn about route configuration
-- Check out [Configuration Guide](Configuration.md) for service manager setup
-- Browse [Examples](Examples.md) for real-world use cases
-- Review the [QueryParamRouter API](QueryParamRouter.md) for advanced features
+- Read the [QueryParamRoute documentation](./QueryParamRoute.md) to learn about route configuration
+- Check out [Configuration Guide](./Configuration.md) for service manager setup
+- Browse [Examples](./Examples.md) for real-world use cases
+- Review the [QueryParamRouter API](./QueryParamRouter.md) for advanced features
 
 ## Support & Contributing
 
