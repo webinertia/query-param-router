@@ -12,6 +12,10 @@ A query-parameter-based `RouterInterface` implementation for routing requests to
 - **Laminas Service Manager Integration**: Full autowiring support via ConfigProvider
 - **TDD Implementation**: Comprehensive unit and integration test coverage
 
+## Documentation
+
+The full documentation for the 1.0 release line starts at [docs/1.0/index.md](docs/1.0/index.md).
+
 ## Installation
 
 ```bash
