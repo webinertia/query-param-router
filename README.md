@@ -1,5 +1,12 @@
 # Query Parameter Router
 
+[![PHP Version](https://img.shields.io/packagist/php-v/webware/query-param-router)](https://packagist.org/packages/webware/query-param-router)
+[![Latest Version](https://img.shields.io/packagist/v/webware/query-param-router)](https://packagist.org/packages/webware/query-param-router)
+[![License](https://img.shields.io/github/license/webinertia/query-param-router)](LICENSE)
+[![Continuous Integration](https://github.com/webinertia/query-param-router/actions/workflows/required/webinertia/.github/.github/workflows/continuous-integration.yml/badge.svg)](https://github.com/webinertia/query-param-router/actions/workflows/required/webinertia/.github/.github/workflows/continuous-integration.yml)
+[![codecov](https://codecov.io/gh/webinertia/query-param-router/graph/badge.svg)](https://codecov.io/gh/webinertia/query-param-router)
+[![Mutation testing badge](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fwebinertia%2Fquery-param-router%2F1.0.x)](https://dashboard.stryker-mutator.io/reports/github.com/webinertia/query-param-router/1.0.x)
+
 A query-parameter-based `RouterInterface` implementation for routing requests to middleware/handlers based on `$request->getQueryParams()`. Fully compatible with [mezzio/mezzio-router](https://github.com/mezzio/mezzio-router) and [laminas/laminas-stratigility](https://github.com/laminas/laminas-stratigility).
 
 ## Features
@@ -390,7 +397,7 @@ docker compose exec tooling composer mutation-test
 
 ## Requirements
 
-- PHP ~8.4.1 || ~8.5.0
+- PHP ~8.4.1 || ~8.5.0 || ~8.6.0
 - [mezzio/mezzio-router](https://github.com/mezzio/mezzio-router) ^3.15 || ^4.0
 - [laminas/laminas-stratigility](https://github.com/laminas/laminas-stratigility) ^3.10 (for integration)
 
