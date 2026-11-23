@@ -21,7 +21,7 @@ A query-parameter-based `RouterInterface` implementation for routing requests to
 
 ## Documentation
 
-The full documentation for the 1.0 release line starts at [docs/1.0/index.md](docs/1.0/index.md).
+The full documentation for the 1.0 release line starts at [docs/1.0](docs/1.0).
 
 ## Installation
 
