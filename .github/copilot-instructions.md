@@ -1,5 +1,18 @@
 # webware/query-param-router: Copilot Agent Instructions
 
+## Read this before acting: fleet working agreements
+
+`vendor/webware/webware-tools/agent-working-agreements.md` is authoritative for how work is done
+in this fleet, and it overrides anything else in this file or in any local note. Read it before
+acting, and again before reporting. The non-negotiables:
+
+- Do exactly the scope asked - only the files, branches and repositories named. No adjacent edits,
+  no cleanup, no onboarding, no surveys.
+- Anything else you notice gets one line at most, with no proposed fix.
+- Never close a reply with a condensed restatement of it, and never present an inference as a
+  measurement.
+- Every change lands through a pull request. Releases and tags belong to the repository owner.
+
 ## Container runtime: WSL containers on Windows
 
 Local container work on Windows uses WSL containers through `wslc.exe` (default path
